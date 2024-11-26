@@ -3,6 +3,7 @@ from sklearn.preprocessing import StandardScaler
 
 # Carica il dataset
 df = pd.read_csv('../datasets/ready_to_use/dataset_fifa_15_23.csv')
+df_not_normalized = pd.read_csv('../datasets/ready_to_use/dataset_fifa_15_23.csv')
 
 # 1. Analisi iniziale
 print("Dimensione del dataset:", df.shape)
@@ -17,6 +18,7 @@ print("Valori nulli per colonna:\n", df.isnull().sum())
 # Sostituzione dei valori nulli con la media per colonne numeriche
 for column in df.select_dtypes(include=['float64', 'int64']).columns:
     df[column].fillna(df[column].mean(), inplace=True)
+    df_not_normalized[column].fillna(df_not_normalized[column].mean(), inplace=True)
 
 # 3. Normalizzazione dei dati
 # Seleziono le colonne numeriche per la normalizzazione
@@ -39,6 +41,5 @@ print("Prime righe del dataset preprocessato:\n", df.head())
 
 # Salvo il dataset preprocessato in un nuovo file CSV
 df.to_csv('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed.csv', index=False)
-print("Dataset preprocessato salvato come 'dataset_fifa_15_23_preprocessed.csv'")
-
-print(df.describe())
+df_not_normalized.to_csv('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv', index=False)
+print("Dataset preprocessato salvato come 'dataset_fifa_15_23_preprocessed_not_normalized.csv'")

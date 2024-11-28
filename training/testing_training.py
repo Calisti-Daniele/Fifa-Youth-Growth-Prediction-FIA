@@ -15,7 +15,7 @@ df = pd.read_csv('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_n
 
 model_path = '../models/fia_model.keras'
 # Ordina per giocatore e fifa_version
-df = df.sort_values(by=['short_name', 'fifa_version'])
+df = df.sort_values(by=['long_name', 'fifa_version'])
 
 # Definisci le feature di input e il target
 features = [
@@ -29,7 +29,7 @@ timesteps = 5  # Lunghezza della sequenza temporale
 X, y = [], []
 
 # Raggruppa per giocatore e crea le sequenze temporali
-for player, player_data in df.groupby('short_name'):
+for player, player_data in df.groupby('long_name'):
     if len(player_data) >= timesteps + 1:  # Deve avere abbastanza versioni
         player_data = player_data[features + [target]].values
         for i in range(len(player_data) - timesteps):

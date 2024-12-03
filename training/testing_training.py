@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import os
-
+import pickle
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
@@ -25,8 +25,17 @@ features = [
 target = 'defending'
 
 # Parametri per LSTM
-timesteps = 5  # Lunghezza della sequenza temporale
+"""
+    Con timesteps decidiamo quante stagioni prendere in considerazione per ogni giocatore
+    Ad ora noi abbiamo 9 stagioni caricate e 1 di testing
+    Problemi:
+        - Se mettiamo timesteps = 9, l'algoritmo non avrà una stagione da prendere come target, quindi almeno timesteps sarà = 8
+        - Se mettiamo timesteps = 8, escludiamo tutti quei giocatori che per qualche ragione hanno saltato delle stagioni
+"""
+timesteps = 3 # Lunghezza della sequenza temporale
 X, y = [], []
+
+appo_df = df.groupby('long_name')
 
 # Raggruppa per giocatore e crea le sequenze temporali
 for player, player_data in df.groupby('long_name'):
@@ -56,7 +65,7 @@ X_scaled = X_flat_scaled.reshape(X.shape)  # Riformare nella shape originale
 y_scaled = scaler_y.fit_transform(y.reshape(-1, 1))
 
 # Divisione in train e test
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_scaled, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_scaled, test_size=0.3, random_state=42)
 
 # Definisci il modello LSTM con Dropout
 model = keras.Sequential([
@@ -142,3 +151,20 @@ plt.ylabel('Defending')
 plt.title('Predizioni vs Valori Reali (Adam - First 100 samples)')
 plt.legend()
 plt.show()
+
+
+#Una volta finito tutto, salvo quello che mi interessa
+# Salva gli scaler
+with open('../models/scaler_X.pkl', 'wb') as f:
+    pickle.dump(scaler_X, f)
+with open('../models/scaler_y.pkl', 'wb') as f:
+    pickle.dump(scaler_y, f)
+
+# Salva parametri utili
+params = {
+    "features": features,
+    "timesteps": timesteps
+}
+with open('../models/model_params.pkl', 'wb') as f:
+    pickle.dump(params, f)
+

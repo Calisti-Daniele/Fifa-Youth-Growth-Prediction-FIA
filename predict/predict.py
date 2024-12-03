@@ -67,5 +67,5 @@ def predict_defending(player_name):
 
 
 # Esempio: previsioni per un giocatore
-player_name = "Ben Davies"  # Modifica il nome del giocatore qui
+player_name = "Matteo Ricci"  # Modifica il nome del giocatore qui
 predict_defending(player_name)

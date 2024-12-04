@@ -3,6 +3,7 @@
     (overall, potential, shooting, passing, dribbling, defending, physic)
     Possiamo scegliere di seguire un approccio specifico per l'analisi multivariata.
 '''
+from training.functions import load_dataset
 
 '''
     1. Separare le feature e i target
@@ -15,7 +16,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Carico il dataset
-df = pd.read_csv('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed.csv')
+df = load_dataset('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed.csv')
 
 # Definisco i target
 target_columns = ['overall', 'potential', 'shooting', 'passing', 'dribbling', 'defending', 'physic']

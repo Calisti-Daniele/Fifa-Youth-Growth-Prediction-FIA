@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import keras
 
+from training.functions import load_dataset
 from training.testing_training import weighted_loss
 
 # Percorsi ai file salvati
@@ -14,12 +15,11 @@ scaler_y_path = '../models/scaler_y.pkl'
 params_path = '../models/model_params.pkl'
 
 # Carica il dataset principale
-df = pd.read_csv(dataset_path)
+df = load_dataset(dataset_path)
 
 # Aggiungi le colonne 'experience' e 'age_trend'
 df = df.sort_values(by=['long_name', 'fifa_version'])
-df['experience'] = df.groupby('long_name').cumcount() + 1
-df['age_trend'] = df.groupby('long_name')['age'].diff().fillna(0)
+
 
 # Carica il modello salvato
 model = keras.models.load_model(model_path, custom_objects={"weighted_loss": weighted_loss})

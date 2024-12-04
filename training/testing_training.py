@@ -12,6 +12,8 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.optimizers import Adam
 import tensorflow as tf
 
+from training.functions import weighted_loss
+
 # Carica il dataset
 df = pd.read_csv('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv')
 model_path = '../models/fia_model.keras'
@@ -54,13 +56,6 @@ y_scaled = scaler_y.fit_transform(y.reshape(-1, 1))
 
 # Divisione in train/test
 X_train, X_test, y_train, y_test = train_test_split(X_scaled, y_scaled, test_size=0.3, random_state=42)
-
-
-@keras.utils.register_keras_serializable()
-def weighted_loss(y_true, y_pred):
-    weights = 1 / (1 + tf.abs(y_true - y_pred))  # Più lontano, più peso
-    return tf.reduce_mean(weights * tf.square(y_true - y_pred))
-
 
 # Modello LSTM con regolarizzazione
 model = keras.Sequential([

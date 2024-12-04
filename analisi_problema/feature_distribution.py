@@ -7,8 +7,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 
+from training.functions import load_dataset
+
 # Carica il dataset
-df = pd.read_csv('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv')
+df = load_dataset('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv')
 
 # Carica gli scaler
 with open('../models/scaler_X.pkl', 'rb') as f:

@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 import pickle
 
-from training.functions import load_dataset
+from training_models.functions import load_dataset
 
 # Carica il dataset
 df = load_dataset('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv')

@@ -3,8 +3,8 @@ import numpy as np
 import pandas as pd
 import keras
 
-from training.functions import load_dataset
-from training.testing_training import weighted_loss
+from training_models.functions import load_dataset
+from training_models.testing_training import weighted_loss
 
 # Percorsi ai file salvati
 dataset_path = '../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv'

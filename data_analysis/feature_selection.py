@@ -3,7 +3,7 @@
     (overall, potential, shooting, passing, dribbling, defending, physic)
     Possiamo scegliere di seguire un approccio specifico per l'analisi multivariata.
 '''
-from training.functions import load_dataset
+from training_models.functions import load_dataset
 
 '''
     1. Separare le feature e i target

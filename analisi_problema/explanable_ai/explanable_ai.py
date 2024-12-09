@@ -3,7 +3,7 @@ import shap.maskers as msk
 import numpy as np
 import keras
 import pickle
-from training.functions import weighted_loss, load_dataset
+from training_models.functions import weighted_loss, load_dataset
 
 # Carica il modello e i parametri salvati
 model_path = '../../models/fia_model.keras'

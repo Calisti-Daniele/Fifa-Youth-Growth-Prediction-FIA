@@ -7,6 +7,7 @@ import pandas as pd
 import os
 from training_models.functions import *
 
+
 # Percorsi dei file
 models_dir = '../models/'
 dataset_path = '../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv'

@@ -1,71 +1,107 @@
-import keras
+import os
+import pickle
 import numpy as np
 import pandas as pd
-import pickle
+from training_models.functions import *
 
-# Carica il modello salvato
-model_path = '../models/fia_model.keras'
-model = keras.models.load_model(model_path)
+# Percorsi ai file
+dataset_path = '../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv'
+dataset_fc_24_path = '../datasets/dataset_fc_24.csv'
+models_dir = '../models/'
 
-# Carica gli scaler
-with open('../models/scaler_X.pkl', 'rb') as f:
-    scaler_X = pickle.load(f)
-with open('../models/scaler_y.pkl', 'rb') as f:
-    scaler_y = pickle.load(f)
+# Carica il dataset principale
+df = load_dataset(dataset_path)
+df = df.sort_values(by=['long_name', 'fifa_version'])
 
-# Carica i parametri
-with open('../models/model_params.pkl', 'rb') as f:
-    params = pickle.load(f)
+# Carica il dataset 2024
+df_fc_24 = pd.read_csv(dataset_fc_24_path)
 
-# Estrai i parametri
-features = params['features']
-timesteps = params['timesteps']
+# Aggiungi le colonne 'experience' e 'age_trend' al dataset 2024
+df_fc_24['experience'] = df_fc_24.groupby('long_name').cumcount() + 1
+df_fc_24['age_trend'] = df_fc_24.groupby('long_name')['Age'].diff().fillna(0)
 
-# Carica il dataset
-df = pd.read_csv('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv')
+# Elenco dei target e relative feature
+features = {
+    'overall': ['potential', 'passing', 'dribbling', 'movement_reactions', 'mentality_composure'],
+    'shooting': ['passing', 'dribbling', 'attacking_finishing', 'attacking_volleys', 'skill_dribbling', 'skill_curve',
+                 'skill_long_passing', 'skill_ball_control', 'movement_agility', 'power_shot_power', 'power_long_shots',
+                 'mentality_positioning', 'mentality_vision', 'mentality_penalties'],
+    'passing': ['shooting', 'dribbling', 'attacking_crossing', 'attacking_short_passing', 'skill_dribbling',
+                'skill_curve', 'skill_long_passing', 'skill_fk_accuracy', 'skill_ball_control', 'power_long_shots',
+                'mentality_vision', 'mentality_positioning'],
+    'dribbling': ['shooting', 'passing', 'attacking_crossing', 'attacking_finishing', 'attacking_volleys',
+                  'skill_dribbling', 'skill_curve', 'skill_fk_accuracy', 'skill_ball_control', 'movement_acceleration',
+                  'movement_agility', 'movement_balance', 'power_long_shots', 'mentality_positioning',
+                  'mentality_vision'],
+    'defending': ['physic', 'mentality_aggression', 'mentality_interceptions', 'defending_marking_awareness',
+                  'defending_standing_tackle', 'defending_sliding_tackle'],
+    'physic': ['defending', 'power_strength', 'mentality_aggression', 'mentality_interceptions']
+}
 
+timesteps = 5  # Lunghezza della sequenza temporale
 
-def get_player_data(player_name):
-    """Funzione per ottenere i dati del giocatore con il nome specificato"""
-    player_data = df[df['long_name'] == player_name]
-    if len(player_data) >= timesteps + 1:
-        return player_data
-    else:
-        return None  # Se il giocatore non ha abbastanza dati
+# Funzione per effettuare la previsione e creare il dataset
+all_predictions = []
 
+def predict_and_collect_results(target, feature_columns):
+    print(f"Inizio predizioni per il target: {target}")
 
-def predict_defending(player_name):
-    # Recupera i dati del giocatore
-    player_data = get_player_data(player_name)
-    if player_data is None:
-        print(f"Il giocatore {player_name} non ha abbastanza dati per fare una previsione.")
-        return
+    # Percorsi dei modelli e scaler
+    model_path = os.path.join(models_dir, target, f"{target}_model.keras")
+    scaler_X_path = os.path.join(models_dir, target, "scaler_X.pkl")
+    scaler_y_path = os.path.join(models_dir, target, "scaler_y.pkl")
 
-    # Filtra le colonne di interesse
-    player_data = player_data[features + ['defending']]
+    # Carica il modello e gli scaler
+    model = keras.models.load_model(model_path, custom_objects={"weighted_loss": weighted_loss})
+    with open(scaler_X_path, 'rb') as f:
+        scaler_X = pickle.load(f)
+    with open(scaler_y_path, 'rb') as f:
+        scaler_y = pickle.load(f)
 
-    # Crea le sequenze temporali
-    player_data_values = player_data.values
-    X_player = []
-    for i in range(len(player_data_values) - timesteps):
-        X_player.append(player_data_values[i:i + timesteps, :-1])  # Input: colonne utili eccetto il target
+    # Prepara i dati per il test
+    X, player_names = [], []
+    for player, player_data in df.groupby('long_name'):
+        if len(player_data) >= timesteps + 1:
+            player_data = player_data[feature_columns].values
+            X.append(player_data[-timesteps:, :])  # Prendi le ultime timesteps
+            player_names.append(player)  # Salva il nome del giocatore
 
-    X_player = np.array(X_player)
+    X = np.array(X)  # Shape: (num_players, timesteps, num_features)
+    print(X.shape)
 
     # Normalizza i dati
-    X_player_scaled = scaler_X.transform(X_player.reshape(-1, len(features)))
-    X_player_scaled = X_player_scaled.reshape(X_player.shape)
+    X_flat = X.reshape(-1, len(feature_columns))
+    X_scaled = scaler_X.transform(X_flat).reshape(X.shape)
 
-    # Effettua la previsione
-    y_pred_scaled = model.predict(X_player_scaled)
-
-    # Inverti la normalizzazione per ottenere il valore originale di "defending"
+    # Predizioni
+    y_pred_scaled = model.predict(X_scaled)
     y_pred_original = scaler_y.inverse_transform(y_pred_scaled)
 
-    # Stampa il risultato
-    print(f"La previsione per 'defending' del giocatore {player_name} è: {y_pred_original[-1][0]:.4f}")
+    # Aggiungi i risultati alle predizioni
+    for player, pred_value in zip(player_names, y_pred_original.flatten()):
+        all_predictions.append({
+            'Nome': player,
+            target: pred_value
+        })
 
+# Effettua le predizioni per ogni target
+for target_name, feature_cols in features.items():
+    predict_and_collect_results(target_name, feature_cols)
 
-# Esempio: previsioni per un giocatore
-player_name = "Matteo Ricci"  # Modifica il nome del giocatore qui
-predict_defending(player_name)
+# Crea un DataFrame con tutte le predizioni
+predictions_df = pd.DataFrame(all_predictions)
+predictions_df = predictions_df.groupby('Nome').first().reset_index()
+
+# Raggruppa il dataset principale per long_name e tieni solo la prima riga
+df = df.groupby('long_name').first().reset_index()
+
+# Merge con il dataset principale
+merged_df = pd.merge(predictions_df,
+                     df[['long_name','player_url', 'short_name', 'player_positions', 'nationality_name', 'preferred_foot']].drop_duplicates(),
+                     left_on='Nome', right_on='long_name', how='left')
+
+# Salva il dataset finale
+output_path = 'fifa_predictions_with_metadata.csv'
+merged_df.to_csv(output_path, index=False)
+print(f"Dataset finale salvato in '{output_path}'")
+

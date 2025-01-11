@@ -1,13 +1,32 @@
+"""
+Questo script unisce più file CSV filtrati in un unico dataset consolidato, mantenendo solo le colonne di interesse.
+
+Funzionamento:
+1. Cerca tutti i file CSV nella directory specificata (`../datasets/filtered/`) che corrispondono al pattern `players_*_filtered.csv`.
+2. Per ogni file trovato:
+   - Carica il file CSV in un DataFrame.
+   - Filtra il DataFrame per mantenere solo un set predefinito di colonne utili.
+   - Aggiunge il DataFrame filtrato a una lista per l'unione successiva.
+3. Combina tutti i DataFrame in un unico dataset grande.
+4. Salva il dataset risultante in un nuovo file CSV (`../datasets/ready_to_use/dataset_fifa_15_23.csv`).
+5. Stampa il numero di righe per ogni file e il totale complessivo.
+
+Utilità:
+- Questo script è utile per consolidare dati di giocatori FIFA filtrati, riducendo il dataset solo alle informazioni necessarie
+  e preparando i dati per ulteriori analisi o modelli di machine learning.
+"""
+
+
 import pandas as pd
 import glob
 
-# Percorso della cartella contenente i file CSV
+#Percorso della cartella contenente i file CSV
 path = '../datasets/filtered/players_*_filtered.csv'
 
-# Lista dei file CSV che corrispondono al pattern
+#Lista dei file CSV che corrispondono al pattern
 files = glob.glob(path)
 
-# Colonne da selezionare
+#COLONNE DA SELEZIONARE
 columns_to_select = [
     'player_url',
     'short_name',
@@ -65,33 +84,34 @@ columns_to_select = [
     'fifa_version'
 ]
 
-# Lista per conservare i DataFrame
+#Lista per conservare i DataFrame
 dataframes = []
-total_rows = 0  # Variabile per contare il numero totale di righe
+total_rows = 0  #Variabile per contare il numero totale di righe
 
-# Ciclo attraverso ogni file CSV
+#Usiamo glob.glob(path) per ottenere una lista di file CSV corrispondenti al pattern
+#e itera attraverso ciascun file.
 for file in files:
-    # Leggi il file CSV
+    #LEGGE IL FILE CSV
     df = pd.read_csv(file)
 
-    # Seleziona solo le colonne di interesse
+    #Seleziona solo le colonne di interesse
     df_selected = df[columns_to_select]
 
-    # Stampa il numero di righe per il dataset corrente
+    #Stampa il numero di righe per il dataset corrente
     num_rows = df_selected.shape[0]
     print(f"Numero di righe nel file {file}: {num_rows}")
 
-    # Aggiungi il DataFrame selezionato alla lista
+    #Aggiungiamo il DataFrame selezionato alla lista
     dataframes.append(df_selected)
 
-    # Aggiorna il numero totale di righe
+    #Aggiornaiamo il numero totale di righe
     total_rows += num_rows
 
-# Concatenare tutti i DataFrame in uno unico
+#COMBINA TUTTI I DATAFRAME ACCUMULATI IN UN UNICO DATAFRAME GRANDE
 final_df = pd.concat(dataframes, ignore_index=True)
 
-# Salva il DataFrame finale in un nuovo file CSV
+#SALVIAMO IL DATAGRAME FINALE IN UN NUOVO FILE CSV
 final_df.to_csv('../datasets/ready_to_use/dataset_fifa_15_23.csv', index=False)
 
-# Stampa il numero totale di righe
+#STAMPA IL NUMERO TOTALE DI RIGHE
 print(f"Numero totale di righe: {total_rows}")

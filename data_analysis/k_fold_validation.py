@@ -1,28 +1,62 @@
+"""
+Questo script esegue la valutazione di modelli predittivi per più target utilizzando una validazione temporale
+(TimeSeriesSplit). L'obiettivo è analizzare le prestazioni dei modelli per prevedere caratteristiche di giocatori
+di calcio (ad esempio: overall, shooting, passing, ecc.) basandosi su dati FIFA.
+
+Passaggi principali:
+1. Caricamento e preprocessamento del dataset:
+   - Il dataset viene ordinato per giocatore e versione FIFA per preservare l'ordine temporale.
+   - Vengono aggiunte nuove feature (`experience` e `age_trend`) per arricchire l'analisi.
+
+2. Definizione dei target e delle feature:
+   - Ogni target è associato a un set specifico di feature che saranno utilizzate come input per il modello.
+
+3. Valutazione con TimeSeriesSplit:
+   - I dati sono trasformati in sequenze temporali di lunghezza definita (`timesteps`).
+   - Viene effettuata la normalizzazione dei dati utilizzando scaler pre-addestrati.
+   - Ogni modello è valutato su più fold temporali per calcolare metriche di prestazione (Loss, MAE).
+
+4. Riepilogo dei risultati:
+   - I risultati (media e deviazione standard di Loss e MAE) sono riportati per ciascun target.
+
+Utilizzo:
+Questo script è utile per confrontare le prestazioni di modelli predittivi in contesti temporali e analizzare
+le relazioni tra le feature e i target nei dati FIFA.
+
+Prerequisiti:
+- Modelli salvati (formato `.keras`) e scaler (`scaler_X.pkl`, `scaler_y.pkl`) devono essere disponibili nella directory dei modelli.
+- Dataset preprocessato e non normalizzato deve essere accessibile al percorso specificato.
+
+Output:
+- Metriche aggregate per ogni target (Loss, MAE) calcolate su più fold temporali.
+"""
+
+
 from sklearn.model_selection import TimeSeriesSplit
 import numpy as np
-import keras
-from sklearn.preprocessing import MinMaxScaler
 import pickle
-import pandas as pd
 import os
 from training_models.functions import *
 
 
-# Percorsi dei file
+#PERCORSO DEI FILE
 models_dir = '../models/'
 dataset_path = '../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv'
 output_dir = 'outputs/'
 
-# Carica il dataset
+#CARICAMENTO DEL DATASET
 print("Caricamento del dataset...")
 df = load_dataset(dataset_path)
 df = df.sort_values(by=['long_name', 'fifa_version'])
 
-# Aggiunta di feature extra
+#AGGIUNGIAMO:
+#EXPERIENCE: INDICA L'ESPERIENZA DEL GIOCATORE, CONTA QUANTE VOLTE UN GIOCATORE APPARE NEL DATASET
 df['experience'] = df.groupby('long_name').cumcount() + 1
+#AGE_TREND: CALCOLA LA DIFFERENZA DI ETÀ TRA I VARI RECORD DELLO STESSO GIOCATORE, PER OSSERVARE
+#COME CAMBIA L'ETÀ TRA I DIVERSI ANNI
 df['age_trend'] = df.groupby('long_name')['age'].diff().fillna(0)
 
-# Definizione dei target e feature
+#DEFINIZIONE DEI TARGET E DELLE FEATURES
 features_dict = {
     'overall': ['potential', 'passing', 'dribbling', 'movement_reactions', 'mentality_composure'],
     'potential': ['overall', 'passing', 'dribbling'],
@@ -46,18 +80,18 @@ timesteps = 5
 num_folds = 5
 
 
-# Funzione principale per valutare ogni target con TimeSeriesSplit
+#Funzione principale per valutare ogni target con TimeSeriesSplit
 def evaluate_model_with_tscv(target_name, features, model_path, scaler_X_path, scaler_y_path):
     print(f"\nInizio valutazione per il target: {target_name}")
 
-    # Carica il modello e gli scaler
+    #CARICAMENTO DEL MODELLO E DEGLI SCALER
     model = keras.models.load_model(model_path)
     with open(scaler_X_path, 'rb') as f:
         scaler_X = pickle.load(f)
     with open(scaler_y_path, 'rb') as f:
         scaler_y = pickle.load(f)
 
-    # Prepara i dati
+    #PREPARAZIONE DEI DATI
     X, y = [], []
     for player, player_data in df.groupby('long_name'):
         if len(player_data) >= timesteps + 1:
@@ -69,12 +103,12 @@ def evaluate_model_with_tscv(target_name, features, model_path, scaler_X_path, s
     X = np.array(X)
     y = np.array(y)
 
-    # Normalizza i dati
+    #NORMALIZZIAMO I DATI
     X_flat = X.reshape(-1, len(features))
     X_scaled = scaler_X.transform(X_flat).reshape(X.shape)
     y_scaled = scaler_y.transform(y.reshape(-1, 1))
 
-    # TimeSeriesSplit
+    #TIMESERIESSPLIT
     tscv = TimeSeriesSplit(n_splits=num_folds)
     metrics = []
 
@@ -83,11 +117,11 @@ def evaluate_model_with_tscv(target_name, features, model_path, scaler_X_path, s
         X_train, X_test = X_scaled[train_index], X_scaled[test_index]
         y_train, y_test = y_scaled[train_index], y_scaled[test_index]
 
-        # Valutazione
+        #VALUTAZIONE
         loss, mae = model.evaluate(X_test, y_test, verbose=1)
         metrics.append({'loss': loss, 'mae': mae})
 
-    # Media e deviazione standard
+    #MEDIA E DEVIAZIONE STANDARD
     avg_loss = np.mean([m['loss'] for m in metrics])
     avg_mae = np.mean([m['mae'] for m in metrics])
     std_loss = np.std([m['loss'] for m in metrics])
@@ -99,7 +133,7 @@ def evaluate_model_with_tscv(target_name, features, model_path, scaler_X_path, s
     return target_name, avg_loss, std_loss, avg_mae, std_mae
 
 
-# Ciclo su tutti i target
+#PER OGNI TARGET ESEGUIAMO EVALUTATE_MODEL_WITH_TSCV USANDO LE FEATURE ASSOCIATE, SALVANDO I RISULTATI
 all_results = []
 for target_name, feature_columns in features_dict.items():
     model_dir = os.path.join(models_dir, target_name)
@@ -112,7 +146,7 @@ for target_name, feature_columns in features_dict.items():
     )
     all_results.append(results)
 
-# Stampa finale di tutti i risultati
+#STAMPA FINALE DI TUTTI I RISULTATI
 print("\n\nRiepilogo finale dei risultati:")
 for result in all_results:
     target_name, avg_loss, std_loss, avg_mae, std_mae = result

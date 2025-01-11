@@ -4,8 +4,8 @@ import numpy as np
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.optimizers import Adam
+from keras.api.layers import LSTM, Dense, Dropout
+from keras.api.optimizers import Adam
 
 from training_models.functions import *
 

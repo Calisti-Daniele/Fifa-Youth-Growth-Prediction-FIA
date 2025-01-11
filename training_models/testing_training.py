@@ -7,12 +7,12 @@ import pickle
 from sklearn.metrics import mean_absolute_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-from tensorflow.keras.layers import LSTM, Dense, Dropout
-from tensorflow.keras.regularizers import l2
-from tensorflow.keras.optimizers import Adam
+from keras.api.layers import LSTM, Dense, Dropout
+from keras.api.regularizers import l2
+from keras.api.optimizers import Adam
 import tensorflow as tf
 
-from training.functions import weighted_loss
+from training_models.functions import weighted_loss
 
 # Carica il dataset
 df = pd.read_csv('../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv')

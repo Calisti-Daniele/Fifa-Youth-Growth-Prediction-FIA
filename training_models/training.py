@@ -9,13 +9,11 @@ from keras.api.optimizers import Adam
 
 from training_models.functions import *
 
-# Carica il dataset
+#CARICAMENTO E PREPRAZIONE DEL DATASET
 df = load_dataset("../datasets/ready_to_use/dataset_fifa_15_23_preprocessed_not_normalized.csv")
-
-# Ordina per giocatore e fifa_version
 df = df.sort_values(by=['long_name', 'fifa_version'])
 
-# Definisci le feature di input e il target
+#DEFINIZIONE DELLE FEATURE E DEI TARGET
 features = {
     'overall': ['potential', 'passing', 'dribbling', 'movement_reactions', 'mentality_composure'],
     'potential': ['overall', 'passing', 'dribbling'],
@@ -33,38 +31,37 @@ features = {
                   'defending_standing_tackle', 'defending_sliding_tackle'],
     'physic': ['defending', 'power_strength', 'mentality_aggression', 'mentality_interceptions']
 }
-
 target = list(features.keys())
 
-# Parametri per LSTM
-timesteps = 5  # Lunghezza della sequenza temporale
 
-# Definisci X e y come dizionari separati per ogni target
+#CREAZIONE DELLE SEQUENZE TEMPORALI PER OGNI TARGET
+timesteps = 5  #Lunghezza della sequenza temporale
+#I DIZIONARI X_DICT E Y_DICT MEMORIZZANO LE SEQUENZE PER OGNI TARGET
 X_dict = {}
 y_dict = {}
-
 for target_name in target:
     X, y = [], []
     feature_columns = features[target_name]
 
-    # Raggruppa per giocatore e crea le sequenze temporali
+    #RAGGRUPPIAMO PER GIOCATORE
     for player, player_data in df.groupby('long_name'):
-        if len(player_data) >= timesteps + 1:  # Deve avere abbastanza versioni
+        if len(player_data) >= timesteps + 1:  #Deve avere abbastanza versioni
             player_data_values = player_data[feature_columns + [target_name]].values
             for i in range(len(player_data_values) - timesteps):
-                X.append(player_data_values[i:i + timesteps, :-1])  # Input: colonne utili eccetto il target
+                X.append(player_data_values[i:i + timesteps, :-1])  #Input: colonne utili eccetto il target
                 y.append(
-                    player_data_values[i + timesteps, -1])  # Target: valore del target (es. 'defending') successivo
+                    player_data_values[i + timesteps, -1])  #Target: valore del target (es. 'defending') successivo
 
-    # Converti in array numpy
-    X_dict[target_name] = np.array(X)  # Shape: (num_samples, timesteps, num_features)
-    y_dict[target_name] = np.array(y)  # Shape: (num_samples,)
+    #CONVERTIAMO IN ARRAY NUMPHY
+    X_dict[target_name] = np.array(X)  #Shape: (num_samples, timesteps, num_features)
+    y_dict[target_name] = np.array(y)  #Shape: (num_samples,)
 
     print(f"Forma di X per {target_name}: {X_dict[target_name].shape}")
     print(f"Forma di y per {target_name}: {y_dict[target_name].shape}")
 
 
-# Definisci il modello LSTM con Dropout
+#COSTRUZIONE DEL MODELLO LSTM
+#CREIAMO UN MODELLO LSTM CON 3 STRATI LSTM, OGNI STRATO E1 SEGUITO DA UN DROPOUT E DUE STRATI DENSE.
 def build_model(input_shape):
     model = keras.Sequential([
         LSTM(128, input_shape=input_shape, activation='tanh', return_sequences=True),
@@ -76,53 +73,54 @@ def build_model(input_shape):
         Dense(64, activation='relu'),
         Dropout(0.2),
         Dense(32, activation='relu'),
-        Dense(1)  # Previsione di un singolo valore per ogni target
+        Dense(1)  #PREVEDIAMO UN SINGOLO VALORE PER OGNI TARGET
     ])
+    #COMPILIAMO CON L'OTTIMIZZATORE ADAM E UNA FUNZIONE DI PERDITA PERSONALIZZATA, CON LA METRICA MAE
     model.compile(optimizer=Adam(learning_rate=0.001), loss=weighted_loss, metrics=['mae'])
     return model
 
 
-# Addestramento e valutazione del modello per ogni target
+#ADDESTRAMENTO E VALUTAZIONE DEL MODELLO PER OGNI TARGET
 for target_name in target:
     print(f"\nInizio addestramento per il target: {target_name}")
 
-    # Costruisci il modello
+    #COSTRUIAMO IL MODELLO
     model = build_model(input_shape=(timesteps, len(features[target_name])))
 
-    # EarlyStopping per evitare overfitting
+    #PER EVITARE OVERFITTING IMPOSTIAMO L'EARLY STOPPING
     early_stopping = keras.callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 
     model_path = f"../models/{target_name}/{target_name}_model.keras"
 
-    # Salviamo il modello
+    #SALVIAMO IL MODELLO
     model_checkpoint = keras.callbacks.ModelCheckpoint(model_path, monitor='val_loss', verbose=1, save_best_only=True)
 
-    # Normalizzazione specifica per ogni target
+    #NORMALIZZAZIONE SPECIFICA PER OGNI TARGET
     scaler_X = MinMaxScaler()
     scaler_y = MinMaxScaler()
 
-    # Appiattire X per scalare (timesteps non sono considerati durante la normalizzazione)
+    #Appiattire X per scalare (timesteps non sono considerati durante la normalizzazione)
     X_flat = X_dict[target_name].reshape(-1, len(features[target_name]))
     X_flat_scaled = scaler_X.fit_transform(X_flat)
     X_dict[target_name] = X_flat_scaled.reshape(X_dict[target_name].shape)
 
-    # Ridimensiona y
+    #Ridimensiona y
     y_dict[target_name] = scaler_y.fit_transform(y_dict[target_name].reshape(-1, 1))
 
-    # Divisione in train/test per ogni target
+    #SUDDIVIAMO I DATI IN TRAINING E TEST, ADDESTRAMENTO 80% E TEST 20%
     X_train, X_test, y_train, y_test = train_test_split(
         X_dict[target_name], y_dict[target_name], test_size=0.2, random_state=42
     )
 
-    # Addestramento del modello
+    #Addestramento del modello
     history = model.fit(X_train, y_train, epochs=50, batch_size=32,
                         validation_split=0.2, verbose=1,
                         callbacks=[early_stopping, model_checkpoint])
 
-    # Salva il modello con la funzione personalizzata
+    #SALVIAMO IL MODELLO CON LA FUNZIONE DI PERDITA PERSONALIZZATA
     model.save(model_path)
 
-    # Salva gli scaler e parametri
+    #SALVATAGGIO DEL MODELLO E DEGLI SCALER
     scaler_X_path = f"../models/{target_name}/scaler_X.pkl"
     scaler_y_path = f"../models/{target_name}/scaler_y.pkl"
     with open(scaler_X_path, 'wb') as f:
@@ -130,14 +128,14 @@ for target_name in target:
     with open(scaler_y_path, 'wb') as f:
         pickle.dump(scaler_y, f)
 
-    # Valutazione del modello
+    #VALUTIAMO IL MODELLO
     loss, mae = model.evaluate(X_test, y_test, verbose=1)
     print(f"Errore assoluto medio (MAE) per {target_name}: {mae}")
 
-    # Predizioni per visualizzazione
+    #Predizioni per visualizzazione
     y_pred_scaled = model.predict(X_test)
 
-    # Invertire la normalizzazione per interpretare i risultati
+    #Invertire la normalizzazione per interpretare i risultati
     y_test_original = scaler_y.inverse_transform(y_test)
     y_pred_original = scaler_y.inverse_transform(y_pred_scaled)
 
@@ -152,7 +150,7 @@ for target_name in target:
     print(f"- RMSE: {rmse:.4f}")
     print(f"- R2-Score: {r2:.4f}")
 
-    # Grafico della Loss
+    #GRAFICO DELLA LOSS
     plt.plot(history.history['loss'], label=f'Training Loss ({target_name})')
     plt.plot(history.history['val_loss'], label=f'Validation Loss ({target_name})')
     plt.xlabel('Epochs')
@@ -161,7 +159,7 @@ for target_name in target:
     plt.legend()
     plt.show()
 
-    # Visualizzare le predizioni vs. valori reali
+    #VISUALIZZIAMO LE PREDIZIONI VS VALORI REALI
     plt.figure(figsize=(10, 5))
     plt.plot(y_test_original[:100], label='Valori reali', color='blue')
     plt.plot(y_pred_original[:100], label='Predizioni del modello', color='red')
